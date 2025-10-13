@@ -5,6 +5,7 @@
 #include <Adafruit_SSD1306.h>
 
 // what library versions?
+// i should write all that down...
 
 
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
@@ -14,27 +15,17 @@
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire);
 
 
-// #include <SD.h>
-// #include <string.h>
-
-// #include <Adafruit_
 #include <Adafruit_TLV320DAC3100.h>
 
 Adafruit_TLV320DAC3100 codec; // Create codec object
 #define TLV_RESET 13
-
-// #include <Audio>
 
 #include <Audio.h>
 #include <Wire.h>
 #include <SPI.h>
 #include <SD.h>
 #include <SerialFlash.h>
-
 #include <string.h>
-
-
-// #include <play_sd_mp3.h>
 
 
 // // GUItool: begin automatically generated code
@@ -44,12 +35,6 @@ Adafruit_TLV320DAC3100 codec; // Create codec object
 // AudioConnection          patchCord2(sine1, 0, i2s1, 1);
 // // GUItool: end automatically generated code
 
-
-// GUItool: begin automatically generated code
-// AudioPlaySdMp3           playMp31;       //xy=154,78
-// AudioOutputI2S           i2s1;           //xy=334,89
-// AudioConnection          patchCord1(playMp31, 0, i2s1, 0);
-// AudioConnection          patchCord2(playMp31, 1, i2s1, 1);
 
 
 AudioPlaySdWav           playWav1;
@@ -63,29 +48,29 @@ AudioConnection          patchCord2(playWav1, 1, audioOutput, 1);
 
 
 #define MAX_NUM_FILES 20
-#define MAX_FILENAME_LEN 0xff 
-
-// this should be exposed
-
-
+#define MAX_FILENAME_LEN 0xff // this should be exposed by FS library
 
 // no dynamic allocation
 char filenames[MAX_NUM_FILES][MAX_FILENAME_LEN];
-int numFiles = 0;
+int numFiles = 0; 
 
-
-
-
+// which file is in selection/playing
 #define NO_FILE_SELECTED -1
 int fileSelect = NO_FILE_SELECTED;
+
+// a file index [0-(numFiles-1)]
+// how far is the screen scrolling
+int fileOffset = 0;
+
+
 
 
 #define VOLUME_SELECT 0
 #define FILE_SELECT 1
 
 
-uint8_t volume;
 uint8_t device_state = VOLUME_SELECT;
+uint8_t volume;
 
 
 // so volume step is 8, and there are 16
@@ -96,12 +81,6 @@ uint8_t device_state = VOLUME_SELECT;
 #define BUTTON_DOWN 11
 #define BUTTON_SELECT 10
 #define BUTTON_SWITCH_STATE 9
-
-
-
-// a file index [0-(numFiles-1)]
-int fileOffset = 0;
-
 
 
 
@@ -118,11 +97,9 @@ void drawFilenames() {
   // ?
   int i = fileOffset;
 
-
   while (display.getCursorY() < 64) {
     if (i == numFiles) break;
     if (i == fileSelect) display.print(">");
-
     display.println(filenames[i]);    
     i++;
   }
@@ -131,79 +108,15 @@ void drawFilenames() {
     display.println("*");
   }
 
-
-  // for (int i = 0; i < 4; i++) {
-  //   if (i == fileSelect) {
-  //     display.setTextColor(SSD1306_BLACK, SSD1306_WHITE);
-  //   } else {
-  //     display.setTextColor(SSD1306_WHITE);
-  //   }
-
-
-  //   // which file is this out of all files?
-  //   int absolute = fileOffset + i;
-  //   if (absolute == numFiles) break;
-
-  //   // special char?
-
-
-  //   if (fileOffset + i < numFiles &&
-  //       fileOffset + i < 10) {
-      
-  //     // yeah
-  //     if (fileOffset + i == specialFile) {
-  //       display.print(">");
-  //     }
-
-  //    display.println(filenames[fileOffset + i]);
-  //   }
-  // }
-
   display.display();
 }
 
 void selectDown() {
-  if (fileOffset < numFiles) {
-    fileOffset++;
-  }
-
-  // // at max for this page
-  // if (fileSelect == 3 || 
-  //     fileSelect == (numFiles - 1)) {
-
-  //   // 4 is the number of files per page
-  //   // idk if works
-  //   if (fileOffset + 4 < numFiles) {
-  //     fileOffset++;
-  //   }
-
-  //   return;
-  // }
-
-  // fileSelect++;
+  if (fileOffset < numFiles) fileOffset++;
 }
 
 void selectUp() {
   if (fileOffset > 0) fileOffset--;
-
-  // fileOffset--;
-
-  // if (fileSelect == 0) {
-  //   if (fileOffset > 0) {
-  //     fileOffset --;
-  //   }
-  //   return;
-  // }
-  // fileSelect --;
-  
-  
-  // if (fileSelect > 0) {
-  //   fileSelect --;
-  //   return;
-  // }
-  // if (fileOffset > 0) {
-  //   fileOffset --;
-  // }
 }
 
 
@@ -256,7 +169,6 @@ void setup() {
   }
 
   // iterate files
-
   File root = SD.open("/");
   File nextFile;
   numFiles = 0;
@@ -281,16 +193,15 @@ void setup() {
     strcpy(filenames[i], nextFile.name());
   }
 
-  // SD.
-
-  // draw
+  // update visuals after underlying data is changed
+  device_state = FILE_SELECT;
   drawFilenames();
 
 
 
 
 
-
+  // test display
 
   // display.clearDisplay();
 
@@ -315,32 +226,23 @@ void setup() {
   // our pins
   // they pull hign by default
   // because of the module?
-
   pinMode(9, INPUT);
   pinMode(10, INPUT);
   pinMode(11, INPUT);
   pinMode(12, INPUT);
 
   
-  // set led ON
+  // set led ON for fun
   digitalWrite(13, HIGH);
 
 
-  // audio stuff
+  // audio chip setup stuff
 
   pinMode(TLV_RESET, OUTPUT);
   digitalWrite(TLV_RESET, LOW);
   delay(100);
   digitalWrite(TLV_RESET, HIGH);
 
-  // test
-  // Wire.begin();
-
-  // Wire.beginTransmission(0x18);
-  // Wire.write(0);
-  // Wire.write(1);
-  // int error = Wire.endTransmission();
-  // Serial.println(error);
 
   Serial.println("Init TLV DAC");
   if (!codec.begin()) {
@@ -426,20 +328,24 @@ void setup() {
     halt("Failed to configure headset detect");
   }
 
+
   Serial.println("TLV config done!");
 
-  // teensy audio
+
+  // teensy audio stuff
 
   AudioMemory(10);
+
   // sine1.amplitude(1.0);
   // sine1.frequency(440);
+
 
   // offset volume
   codec.setChannelVolume(false, volume-30);
   codec.setChannelVolume(true, volume-30);
 
 
-
+  // error?
   playFile("01 - Afro-Blue.wav");
   
 }
@@ -475,22 +381,21 @@ void loop() {
         // offset volume
         codec.setChannelVolume(false, volume-30);
         codec.setChannelVolume(true, volume-30);
-
       } 
     }
     else if (down) {
       if (volume > 0) {
         volume --;
 
-      // offset 
+        // offset volume 
         codec.setChannelVolume(false, volume-30);
         codec.setChannelVolume(true, volume-30);
-
-
       }
     }
 
-    drawVolume();
+    if (up || down) {
+      drawVolume();
+    }
   }
   else if (device_state == FILE_SELECT) {
     
@@ -516,6 +421,4 @@ void loop() {
 
   // delay for debounce
   delay(100);
-
-  
 }
